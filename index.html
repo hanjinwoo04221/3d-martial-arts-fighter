@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>무술 격투 3D</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="game-root">
+  <canvas id="canvas"></canvas>
+
+  <!-- ===== Split-screen divider (2P mode) ===== -->
+  <div id="split-divider" class="hidden"><span class="vs-badge">VS</span></div>
+  <div id="p1-viewlabel" class="view-label left hidden">P1 시점</div>
+  <div id="p2-viewlabel" class="view-label right hidden">P2 시점</div>
+
+  <!-- ===== HUD (in-match) ===== -->
+  <div id="hud" class="hidden">
+    <div class="top-bar">
+      <div class="fighter-panel left">
+        <div class="fighter-name" id="p1-name">P1</div>
+        <div class="hp-bar-outer"><div class="hp-bar-inner" id="p1-hp"></div></div>
+        <div class="meter-bar-outer"><div class="meter-bar-inner" id="p1-meter"></div></div>
+        <div class="round-pips" id="p1-pips"></div>
+      </div>
+
+      <div class="center-panel">
+        <div id="timer">60</div>
+        <div id="round-label">ROUND 1</div>
+      </div>
+
+      <div class="fighter-panel right">
+        <div class="fighter-name" id="p2-name">P2</div>
+        <div class="hp-bar-outer"><div class="hp-bar-inner" id="p2-hp"></div></div>
+        <div class="meter-bar-outer"><div class="meter-bar-inner" id="p2-meter"></div></div>
+        <div class="round-pips" id="p2-pips"></div>
+      </div>
+    </div>
+
+    <div id="announce"></div>
+  </div>
+
+  <!-- ===== Title / Main Menu ===== -->
+  <div id="menu-title" class="screen">
+    <h1>武術 <span>격투 3D</span></h1>
+    <p class="subtitle">MARTIAL ARTS FIGHTER</p>
+    <div class="menu-buttons">
+      <button id="btn-1p">1인용 (VS CPU)</button>
+      <button id="btn-2p">2인용 (VS PLAYER)</button>
+      <button id="btn-howto">조작법</button>
+    </div>
+    <p class="footer-hint">Three.js 로컬 엔진 · 오프라인 실행 가능</p>
+  </div>
+
+  <!-- ===== How To Play ===== -->
+  <div id="menu-howto" class="screen hidden">
+    <h2>조작법</h2>
+    <div class="howto-grid">
+      <div class="howto-col">
+        <h3>Player 1</h3>
+        <ul>
+          <li><b>A / D</b> — 이동</li>
+          <li><b>W</b> — 점프</li>
+          <li><b>S</b> — 막기 (홀드)</li>
+          <li><b>Q / E</b> — 사이드스텝 (회피)</li>
+          <li><b>A A / D D</b> — 백대시(회피) / 대시</li>
+          <li><b>F</b> — 주먹</li>
+          <li><b>G</b> — 발차기</li>
+          <li><b>H</b> — 필살기 (게이지 100%)</li>
+        </ul>
+      </div>
+      <div class="howto-col">
+        <h3>Player 2</h3>
+        <ul>
+          <li><b>← / →</b> — 이동</li>
+          <li><b>↑</b> — 점프</li>
+          <li><b>↓</b> — 막기 (홀드)</li>
+          <li><b>U / O</b> — 사이드스텝 (회피)</li>
+          <li><b>← ← / → →</b> — 백대시(회피) / 대시</li>
+          <li><b>J</b> — 주먹</li>
+          <li><b>K</b> — 발차기</li>
+          <li><b>L</b> — 필살기 (게이지 100%)</li>
+        </ul>
+      </div>
+    </div>
+    <p class="howto-tip">
+      <b>주먹/발차기는 이동 방향에 따라 자동으로 기술이 바뀝니다</b> — 제자리: 잽 / 앞차기 · 전진+공격: 스트레이트 / 돌려차기 ·
+      후진+공격: 엘보 / 백스핀킥 · 막기+공격: 보디블로우 / 로우킥(적중 시 다운).<br/>
+      사이드스텝·백대시 중에는 짧은 순간 상대 공격을 완전히 회피합니다. 막은 공격은 데미지가 크게 줄고,
+      적중·피격 시 필살기 게이지가 채워집니다. 2인용은 각자 자기 캐릭터 뒤 3인칭 화면으로 분할되어 표시됩니다.
+    </p>
+    <button id="btn-howto-back">뒤로</button>
+  </div>
+
+  <!-- ===== Character Select ===== -->
+  <div id="menu-select" class="screen hidden">
+    <h2>무술 유파 선택</h2>
+    <div class="select-columns">
+      <div class="select-col">
+        <h3 id="select-p1-label">Player 1</h3>
+        <div class="style-cards" id="p1-styles"></div>
+      </div>
+      <div class="select-col">
+        <h3 id="select-p2-label">Player 2 / CPU</h3>
+        <div class="style-cards" id="p2-styles"></div>
+      </div>
+    </div>
+    <button id="btn-fight">대결 시작!</button>
+    <button id="btn-select-back">뒤로</button>
+  </div>
+
+  <!-- ===== Match Result ===== -->
+  <div id="menu-result" class="screen hidden">
+    <h2 id="result-title">K.O.</h2>
+    <p id="result-sub"></p>
+    <div class="menu-buttons">
+      <button id="btn-rematch">다시 대결</button>
+      <button id="btn-mainmenu">메인 메뉴</button>
+    </div>
+  </div>
+
+  <!-- ===== Pause ===== -->
+  <div id="menu-pause" class="screen hidden">
+    <h2>일시정지</h2>
+    <div class="menu-buttons">
+      <button id="btn-resume">계속하기</button>
+      <button id="btn-quit">메인 메뉴로</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/vendor/three.min.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

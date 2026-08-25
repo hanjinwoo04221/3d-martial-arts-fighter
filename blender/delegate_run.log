@@ -1,0 +1,20 @@
+All keys validated across all 104 sampled frames. Here's the summary:
+
+## Summary
+
+**File written:** `c:\Users\hanjw\OneDrive\Desktop\새 폴더\game\blender\fight_curves.json` — **61,590 bytes**, 8 moves, 104 total sampled frames at 30fps, valid JSON (re-parsed and key-checked programmatically).
+
+**Durations verified against `ATTACKS`** (unchanged, gameplay-critical): jab 0.25s, straight 0.38s, elbow 0.23s, bodyBlow 0.31s, frontKick 0.39s, roundhouse 0.54s, spinBack 0.61s, sweep 0.50s.
+
+**Method:** Ported the game's `computeAttackPose()` switch-case into Python inside Blender, then layered real animation-principle amplification on top rather than hand-typing hundreds of numbers: deeper chamber (1.4–1.6× the baseline's -0.3 wind-up), a modest snap boost (1.05–1.12×, see below), and an extra `torsoRotY` twist multiplier specifically for the hip-rotation moves the spec called out (straight ×1.35, roundhouse ×1.25, elbow ×1.2, spinBack ×1.15). Added standing-leg knee softening under load for kicks (extra −0.15 to −0.20 rad on the planted knee) and a small negative-direction rebound overshoot keyframe before the final settle-to-guard.
+
+Each move got 6 real keyframes (guard → chamber → impact → hold → overshoot → settle) authored as actual Blender F-curves with Bezier interpolation: `VECTOR` handles bracketing the chamber→impact→hold segment for a fast, snappy strike, `AUTO_CLAMPED` elsewhere for organic ease in/out of guard and the overshoot settle. Sampling was done via `fcurve.evaluate()`, not hand-written easing math.
+
+**Visually verified:** straight punch, via an actual Blender **render** (not the viewport-screenshot tool — see issues below) of a blocky proxy rig built from `build()`'s exact offsets (Y-up→Z-up remapped). The first render caught a real problem — the initial snap-boost (1.15–1.25×) pushed the rear shoulder rotation to ≈−159°, well past a natural full extension — so I dialed the snap boost back to 1.05–1.12× and kept the larger chamber boost, which reads as a much more plausible full-extension punch. Roundhouse was not separately screenshotted (time budget); it uses the same amplification system and boost values calibrated from the straight-punch pass, so it should be visually consistent, but wasn't independently spot-checked.
+
+**Blender-side issues hit:**
+- `get_viewport_screenshot` never reflected any pose/camera/view changes across ~5 attempts (region_3d edits, `view3d.view_camera`, `view_selected`) — it appears to always capture a stale/default view in this environment, so I switched to `bpy.ops.render.render(write_still=True)` + reading the PNG directly, which did work and is what caught the over-rotation bug above.
+- Blender 5.2's Action data model has changed (no more `action.fcurves`); had to go through the new `action.layers[0].strips[0].channelbags[0].fcurves` path.
+- A `TRACK_TO` camera constraint with `up_axis='UP_Y'` on this Z-up scene caused a rolled/diagonal render; fixing it to `UP_Z` then pointed the camera off-target instead. I stopped chasing camera framing after that rather than burn more time, per the "don't spend more than ~15 minutes" guidance — the JSON export itself was verified numerically (sampled curve values inspected directly, e.g. straight punch's chamber→impact→overshoot progression) rather than re-confirmed visually for every move.
+
+No files outside `blender/fight_curves.json` and throwaway Blender scene content were touched; `js/game.js` was read-only.

@@ -1,0 +1,98 @@
+You have a live connection to a running Blender instance via the mcp__blender__* tools
+(execute_blender_code, get_scene_info, get_object_info, get_viewport_screenshot, get_addon_status).
+Your job: use Blender as a professional animation-curve authoring tool to design more dynamic,
+realistic martial-arts strike animations for a browser fighting game, then export the resulting
+curves as JSON so they can be baked into the game's existing (non-Blender) rig.
+
+STEP 0 — Read the spec first
+Read this file to understand the EXACT current rig hierarchy, joint semantics, numeric ranges,
+and per-move timing that are already live in the shipped game:
+  c:\Users\hanjw\OneDrive\Desktop\새 폴더\game\js\game.js
+Focus on: the `build()` method of the Fighter class (bone/joint hierarchy and rest-pose offsets),
+the `pose()` method (which joint fields exist and how they're applied), the `ATTACKS` table
+(per-move startup/active/recovery seconds — these are gameplay-critical hit-timing windows and
+must NOT change), and the current `computeAttackPose()` formulas (these are the CURRENT baseline
+quality you are improving on — read them as calibration reference for sign/direction/magnitude of
+each joint, e.g. what a "chamber" vs "full extension" value looks like today).
+
+The joint parameter set you must produce values for for every move (same names/semantics as the
+game's `pose()` function expects):
+  torsoRotX, torsoRotY, torsoRotZ   (torso pivot rotation, radians)
+  headRotX                          (neck pivot rotation, radians)
+  hipsY, hipsX                      (hips group Y offset = stance height/crouch;
+                                      torsoPivot X offset = forward/lateral weight shift)
+  sL.x, sL.y, sL.z / sR.x, sR.y, sR.z   (left/right shoulder pivot rotation, radians)
+  eL, eR                            (left/right elbow pivot rotation.x, radians)
+  hL.x, hL.y, hL.z / hR.x, hR.y, hR.z   (left/right hip pivot rotation, radians)
+  kL, kR                            (left/right knee pivot rotation.x, radians)
+
+Moves to (re)author, with their EXACT total duration in seconds (startup+active+recovery from the
+ATTACKS table — read the table yourself for the precise per-phase split, since the "active" window
+is when a hit is checked and must land near the pose's peak extension):
+  jab, straight, elbow, bodyBlow, frontKick, roundhouse, spinBack, sweep
+(Skip the 3 special moves (spinKick/straightPunch/flyingKick) and the non-attack states
+(idle/walk/block/hitstun/knockdown/etc.) — those stay as-is in the JS code. Only the 8 moves above.)
+
+STEP 1 — Build a lightweight visual proxy rig in Blender (for YOUR reference only, to sanity-check
+silhouettes — it is never exported)
+Using execute_blender_code, build a simple stick-figure/blocky humanoid in Blender that mirrors the
+game's rig proportions from `build()` (translate the game's Y-up coordinates to Blender's Z-up by
+mapping game-X -> Blender-X, game-Y(height) -> Blender-Z, game-Z(depth) -> Blender-Y). Use simple
+primitives (cubes/cylinders) or an Armature, whichever is faster for you to pose and iterate with.
+It does not need to be pretty — it exists so you can call get_viewport_screenshot from a side angle
+and a 3/4 angle to actually LOOK at whether a pose reads as a strong, dynamic strike (weight
+transferred onto the front/plant leg, hips and shoulders counter-rotating into the strike, a real
+chamber/wind-up before the snap, arms/legs moving in arcs not straight lines, a believable
+follow-through/settle after impact) versus looking stiff or flat. Iterate on at least the
+`straight` punch and `roundhouse` kick poses visually via screenshots until they read as dynamic;
+use your best judgment (informed by real martial-arts/animation-principle knowledge — anticipation,
+arcs, overlap/follow-through, weight shift, slow-in/slow-out) for the rest without necessarily
+screenshotting every single one if time is short.
+
+STEP 2 — Author real keyframed curves per move
+For each of the 8 moves, on a plain Blender object (Empty or your proxy rig — your choice), create
+one Custom Property (or F-Curve) per joint parameter above, and keyframe it across the move's
+timeline at minimum at these beats: rest/guard (t=0), deep chamber/anticipation (partway through
+startup — pull opposite the strike direction further than the current JS baseline does, for a
+bigger, more readable wind-up), full extension/impact (start of the "active" window), and eased
+recovery back to guard with a touch of natural overshoot before settling (end of recovery). Set
+Bezier handle types/easing so motion snaps fast into impact and settles smoothly out of it (this is
+the main thing Blender's graph editor gives you that hand-written JS easing formulas don't) —
+prefer Blender's actual F-curve keyframes/interpolation over writing your own easing math.
+Apply real animation principles: contralateral hip/shoulder counter-rotation, weight shifting onto
+the striking side, the non-striking arm counter-balancing, standing-leg knee softening under load,
+bigger torso twist (torsoRotY) than the current baseline for punches/kicks that would realistically
+involve hip rotation (straight, elbow, roundhouse, spinBack especially).
+
+STEP 3 — Sample and export
+For each move, sample every joint parameter at 30 fps across the move's full duration (from the
+ATTACKS timing) and write one JSON file:
+  c:\Users\hanjw\OneDrive\Desktop\새 폴더\game\blender\fight_curves.json
+Schema:
+{
+  "fps": 30,
+  "moves": {
+    "jab": { "duration": <seconds>, "frames": [ { "t": 0.0, "torsoRotX": 0.04, "torsoRotY": 0, ... all joint keys ... }, ... ] },
+    "straight": { ... },
+    "elbow": { ... },
+    "bodyBlow": { ... },
+    "frontKick": { ... },
+    "roundhouse": { ... },
+    "spinBack": { ... },
+    "sweep": { ... }
+  }
+}
+Every frame object must include ALL joint keys listed above (use 0 for any you didn't animate for
+that particular move). Write the file with plain Python `json.dump` via execute_blender_code (or
+Write tool) — valid JSON, no trailing commas/comments.
+
+STEP 4 — Report back
+Print a short plain-text summary: which moves you visually verified via screenshot, any notable
+creative choices (e.g. "increased straight punch torso twist from 0.42 to 0.7 rad and added hip
+lead"), the final file path and its size, and any Blender-side issues you hit.
+
+Constraints: don't modify js/game.js or any other game file — only write the JSON file above (and
+any throwaway Blender scene content). Don't spend more than ~15 real-world minutes; if a move is
+taking too long, ship a reasonable hand-tuned curve for it (informed by animation principles) rather
+than perfecting it via endless screenshot iteration — screenshots are a sanity check for 2-3 flagship
+moves, not required for all 8.
